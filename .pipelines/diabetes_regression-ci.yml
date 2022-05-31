@@ -26,6 +26,7 @@ pool:
 
 stages:
 - stage: 'Model_CI'
+
   displayName: 'Model CI'
   jobs:
   - job: "Model_CI_Pipeline"
@@ -48,7 +49,7 @@ stages:
 
 - stage: 'Trigger_AML_Pipeline'
   displayName: 'Train and evaluate model'
-  condition: succeeded()
+  # condition: succeeded()
   variables:
     BUILD_URI: '$(SYSTEM.COLLECTIONURI)$(SYSTEM.TEAMPROJECT)/_build/results?buildId=$(BUILD.BUILDID)'
   jobs:
@@ -76,17 +77,31 @@ stages:
     dependsOn: "Get_Pipeline_ID"
     displayName: "Trigger ML Training Pipeline"
     timeoutInMinutes: 0
-    pool: server
+
     variables:
       AMLPIPELINE_ID: $[ dependencies.Get_Pipeline_ID.outputs['getpipelineid.AMLPIPELINEID'] ]
     steps:
-    - task: ms-air-aiagility.vss-services-azureml.azureml-restApi-task.MLPublishedPipelineRestAPITask@0
-      displayName: 'Invoke ML pipeline'
+    # - task: ms-air-aiagility.vss-services-azureml.azureml-restApi-task.MLPublishedPipelineRestAPITask@0
+    #   displayName: 'Invoke ML pipeline'
+    #   inputs:
+    #     azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
+    #     PipelineId: '$(AMLPIPELINE_ID)'
+    #     ExperimentName: '$(EXPERIMENT_NAME)'
+    #     PipelineParameters: '"ParameterAssignments": {"model_name": "$(MODEL_NAME)"}, "tags": {"BuildId": "$(Build.BuildId)", "BuildUri": "$(BUILD_URI)"}, "StepTags": {"BuildId": "$(Build.BuildId)", "BuildUri": "$(BUILD_URI)"}'
+    - task: AzureCLI@1
       inputs:
         azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
-        PipelineId: '$(AMLPIPELINE_ID)'
-        ExperimentName: '$(EXPERIMENT_NAME)'
-        PipelineParameters: '"ParameterAssignments": {"model_name": "$(MODEL_NAME)"}, "tags": {"BuildId": "$(Build.BuildId)", "BuildUri": "$(BUILD_URI)"}, "StepTags": {"BuildId": "$(Build.BuildId)", "BuildUri": "$(BUILD_URI)"}'
+        scriptLocation: inlineScript
+        workingDirectory: $(Build.SourcesDirectory)
+        inlineScript: |
+          set -e # fail on error
+          export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          python -m ml_service.pipelines.trigger_pipeline.py
+
+          echo "Finish Trigger pipeline"
+      name: 'getpipelineid'
+      displayName: 'Get Pipeline ID'
+
   - job: "Training_Run_Report"
     dependsOn: "Run_ML_Pipeline"
     condition: always()
