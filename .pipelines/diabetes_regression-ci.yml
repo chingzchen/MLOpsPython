@@ -49,7 +49,7 @@ stages:
 
 - stage: 'Trigger_AML_Pipeline'
   displayName: 'Train and evaluate model'
-  condition: succeeded()
+  # condition: succeeded()
   variables:
     BUILD_URI: '$(SYSTEM.COLLECTIONURI)$(SYSTEM.TEAMPROJECT)/_build/results?buildId=$(BUILD.BUILDID)'
   jobs:
